@@ -45,10 +45,11 @@ class GF_Admin_ThickBox_Debug {
         <div class="wrap">
             <h1>Gravity Form in Admin Popup (ThickBox Debug)</h1>
 
-            <a href="#TB_inline?width=700&height=700&inlineId=gf-form-popup" 
-               class="thickbox button button-primary" id="open-gf-popup">
-               Open Form
+            <a href="#TB_inline?width=900&height=800&inlineId=gf-form-popup" 
+            class="thickbox button button-primary" id="open-gf-popup">
+            Open Form
             </a>
+
 
             <div id="gf-form-popup" style="display:none;">
                 <?php
@@ -92,3 +93,45 @@ class GF_Admin_ThickBox_Debug {
 }
 
 new GF_Admin_ThickBox_Debug();
+
+add_action('admin_head', function() {
+    ?>
+    <style>
+        /* Center the form content */
+        #TB_window .mceContentBody, #TB_window {
+            max-width: 1000px !important; /* Ensure it uses full width */
+        }
+
+        /* Optional: add padding inside ThickBox */
+        #TB_ajaxContent {
+            padding: 20px;
+            background: #fff;
+        }
+
+        /* Style GF fields inside admin popup */
+        #gf-form-popup .gform_wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Optional: make submit button look nicer in admin */
+        #gf-form-popup .gform_wrapper .gform_footer input[type="submit"] {
+            background: #0073aa;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        #gf-form-popup .gform_wrapper .gform_footer input[type="submit"]:hover {
+            background: #0096dd;
+        }
+
+        #TB_window {
+    overflow-y: auto;
+}
+
+    </style>
+    <?php
+});
