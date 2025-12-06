@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Gravity Forms Admin Popup Debug
-Description: Render a Gravity Form fully functional inside a WordPress admin popup (ThickBox) with debug.
+Description: Render a Gravity Form fully functional inside a WordPress admin popup
 Version: 1.2
 Author: Fahad Murtaza aka iSuperCoder
 Plugin URI: https://isupercoder.com/contact
@@ -37,13 +37,22 @@ class GF_Admin_ThickBox_Debug {
 
         // Enqueue jQuery
         wp_enqueue_script('jquery');
+
+        // Enqueue scripts for all active forms to ensure fields like File Upload, Signature, etc. work
+        if (class_exists('GFForms') && class_exists('GFAPI') && class_exists('GFFormDisplay')) {
+            wp_enqueue_script('gform_gravityforms');
+            $forms = GFAPI::get_forms(true, false);
+            foreach ($forms as $form) {
+                GFFormDisplay::enqueue_form_scripts($form);
+            }
+        }
     }
 
     public function render_page() {
         $form_id = 1; // your GF ID
         ?>
         <div class="wrap">
-            <h1>Gravity Form in Admin Popup (ThickBox Debug)</h1>
+            <h1>Gravity Form in Admin Popup</h1>
 
             <a href="#TB_inline?width=900&height=800&inlineId=gf-form-popup" 
             class="thickbox button button-primary" id="open-gf-popup">
@@ -58,8 +67,8 @@ class GF_Admin_ThickBox_Debug {
                     echo '<script>console.error("GF classes not found");</script>';
                 } else {
                     echo '<script>console.log("GF classes loaded");</script>';
-                    GFForms::enqueue_form_scripts($form_id, true);
-                    $form_html = GFFormDisplay::get_form($form_id, true, true, true);
+                    // GFForms::enqueue_form_scripts($form_id, true); // Moved to enqueue_scripts
+                    $form_html = GFFormDisplay::get_form($form_id, true, true, true, null, true);
                     if (!$form_html) {
                         echo '<p style="color:red;">Form HTML is empty!</p>';
                         echo '<script>console.error("GFFormDisplay::get_form returned empty");</script>';
@@ -86,6 +95,14 @@ class GF_Admin_ThickBox_Debug {
                     console.error("Error opening ThickBox:", err);
                 }
             });
+
+            // Scroll to top of modal when form renders (pagination, error, submission)
+            $(document).bind('gform_post_render', function() {
+                var $modalWindow = $('#TB_window');
+                if ($modalWindow.length) {
+                    $modalWindow.scrollTop(0);
+                }
+            });
         });
         </script>
         <?php
@@ -97,40 +114,45 @@ new GF_Admin_ThickBox_Debug();
 add_action('admin_head', function() {
     ?>
     <style>
-        /* Center the form content */
-        #TB_window .mceContentBody, #TB_window {
-            max-width: 1000px !important; /* Ensure it uses full width */
-        }
-
-        /* Optional: add padding inside ThickBox */
+        /* Reset ThickBox Content Container to allow full scrolling */
         #TB_ajaxContent {
-            padding: 20px;
-            background: #fff;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+            padding: 20px 30px !important;
+            box-sizing: border-box;
         }
 
-        /* Style GF fields inside admin popup */
-        #gf-form-popup .gform_wrapper {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        /* Optional: make submit button look nicer in admin */
-        #gf-form-popup .gform_wrapper .gform_footer input[type="submit"] {
-            background: #0073aa;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
-        #gf-form-popup .gform_wrapper .gform_footer input[type="submit"]:hover {
-            background: #0096dd;
-        }
-
+        /* Modernize ThickBox Window */
         #TB_window {
-    overflow-y: auto;
-}
+            /* Position top/bottom fixed to create full height modal */
+            top: 30px !important;
+            bottom: 30px !important;
+            margin-top: 0 !important; /* Remove legacy centering */
+            height: auto !important; /* Allow height to flex */
+            
+            /* Width & Horizontal Centering */
+            width: 80% !important;
+            max-width: 800px !important; /* User requested limit */
+            
+            /* Better Centering Strategy */
+            left: 50% !important;
+            margin-left: 0 !important; 
+            transform: translateX(-50%) !important;
+            
+            /* Single Scrollbar for the whole window */
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            
+            /* Visual Cleanup */
+            border-radius: 4px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        /* Ensure Editor/Content uses full width */
+        #TB_window .mceContentBody {
+            max-width: 100% !important;
+        }
 
     </style>
     <?php
