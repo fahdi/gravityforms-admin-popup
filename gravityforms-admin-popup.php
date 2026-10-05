@@ -1,8 +1,9 @@
 <?php
 /*
-Plugin Name: Gravity Forms Admin Popup Debug
+Plugin Name: Gravity Forms Admin Popup
 Description: Render a Gravity Form fully functional inside a WordPress admin popup
-Version: 1.2
+Version: 1.3
+Text Domain: gravityforms-admin-popup
 Author: Fahad Murtaza aka iSuperCoder
 Plugin URI: https://isupercoder.com/contact
 Author URI: https://isupercoder.com/contact
@@ -12,9 +13,27 @@ if (!defined('ABSPATH')) exit;
 
 class GF_Admin_ThickBox_Debug {
 
+    const OPTION = 'gf_admin_popup_form_id';
+
     public function __construct() {
         add_action('admin_menu', [$this, 'add_admin_page']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
+        add_action('admin_init', [$this, 'register_settings']);
+    }
+
+    public function register_settings() {
+        register_setting('gf_admin_popup', self::OPTION, [
+            'type'              => 'integer',
+            'sanitize_callback' => 'absint',
+            'default'           => 1,
+        ]);
+    }
+
+    /**
+     * Form rendered in the popup. Filterable so a site can pick it per user/context.
+     */
+    public function get_form_id() {
+        return (int) apply_filters('gf_admin_popup_form_id', (int) get_option(self::OPTION, 1));
     }
 
     public function add_admin_page() {
@@ -38,21 +57,28 @@ class GF_Admin_ThickBox_Debug {
         // Enqueue jQuery
         wp_enqueue_script('jquery');
 
-        // Enqueue scripts for all active forms to ensure fields like File Upload, Signature, etc. work
+        // Enqueue scripts for the selected form only (File Upload, Signature, etc.)
         if (class_exists('GFForms') && class_exists('GFAPI') && class_exists('GFFormDisplay')) {
             wp_enqueue_script('gform_gravityforms');
-            $forms = GFAPI::get_forms(true, false);
-            foreach ($forms as $form) {
+            $form = GFAPI::get_form($this->get_form_id());
+            if ($form && !is_wp_error($form)) {
                 GFFormDisplay::enqueue_form_scripts($form);
             }
         }
     }
 
     public function render_page() {
-        $form_id = 1; // your GF ID
+        $form_id = $this->get_form_id();
         ?>
         <div class="wrap">
-            <h1>Gravity Form in Admin Popup</h1>
+            <h1><?php esc_html_e('Gravity Form in Admin Popup', 'gravityforms-admin-popup'); ?></h1>
+
+            <form method="post" action="options.php" style="margin-bottom:20px;">
+                <?php settings_fields('gf_admin_popup'); ?>
+                <label for="<?php echo esc_attr(self::OPTION); ?>"><?php esc_html_e('Form ID to show in the popup', 'gravityforms-admin-popup'); ?></label>
+                <input type="number" min="1" class="small-text" id="<?php echo esc_attr(self::OPTION); ?>" name="<?php echo esc_attr(self::OPTION); ?>" value="<?php echo esc_attr($form_id); ?>" />
+                <?php submit_button(__('Save', 'gravityforms-admin-popup'), 'secondary', 'submit', false); ?>
+            </form>
 
             <a href="#TB_inline?width=900&height=800&inlineId=gf-form-popup" 
             class="thickbox button button-primary" id="open-gf-popup">
@@ -63,18 +89,13 @@ class GF_Admin_ThickBox_Debug {
             <div id="gf-form-popup" style="display:none;">
                 <?php
                 if (!class_exists('GFForms') || !class_exists('GFFormDisplay')) {
-                    echo '<p>Gravity Forms not active!</p>';
-                    echo '<script>console.error("GF classes not found");</script>';
+                    echo '<p>' . esc_html__('Gravity Forms is not active.', 'gravityforms-admin-popup') . '</p>';
                 } else {
-                    echo '<script>console.log("GF classes loaded");</script>';
-                    // GFForms::enqueue_form_scripts($form_id, true); // Moved to enqueue_scripts
                     $form_html = GFFormDisplay::get_form($form_id, true, true, true, null, true);
                     if (!$form_html) {
-                        echo '<p style="color:red;">Form HTML is empty!</p>';
-                        echo '<script>console.error("GFFormDisplay::get_form returned empty");</script>';
+                        echo '<p style="color:red;">' . esc_html(sprintf(__('Form %d could not be rendered. Check the Form ID above.', 'gravityforms-admin-popup'), $form_id)) . '</p>';
                     } else {
-                        echo $form_html;
-                        echo '<script>console.log("Form HTML rendered");</script>';
+                        echo $form_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- GF-rendered markup
                     }
                 }
                 ?>
@@ -83,14 +104,10 @@ class GF_Admin_ThickBox_Debug {
 
         <script>
         jQuery(document).ready(function($){
-            console.log("GF Admin ThickBox Debug loaded");
-
             $('#open-gf-popup').on('click', function(e){
-                console.log("Open Form clicked");
                 // TB_show is provided by add_thickbox()
                 try {
                     TB_show("Gravity Form", $(this).attr('href'), false);
-                    console.log("ThickBox TB_show called");
                 } catch(err) {
                     console.error("Error opening ThickBox:", err);
                 }
